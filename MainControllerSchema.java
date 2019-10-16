@@ -19,6 +19,7 @@ public class MainControllerSchema extends LinearOpMode {
     //utils
     private ElapsedTime runtime = new ElapsedTime();
     private ElapsedTime intervalTime = new ElapsedTime();
+    private ElapsedTime ballSensorDelta = null;
 
     // Motors
     private DcMotor leftDrive = null;
@@ -158,8 +159,16 @@ public class MainControllerSchema extends LinearOpMode {
         }
 
         if (trigger.getPosition() == 0) {
-            shoot = false;
+            if (ballSensorDelta == null) {
+                ballSensorDelta = new ElapsedTime();
+                ballSensorDelta.startTime();
+            }
+            if (ballSensorDelta.time() < 100){
+                shoot = false;
+            }
         }
+        telemetry.addData("debug", "shoot: " + shoot);
+        telemetry.addData("debug", "servo pos: " + trigger.getPosition());
 
         if (shoot) {
             trigger.setPosition(0);
@@ -251,7 +260,7 @@ public class MainControllerSchema extends LinearOpMode {
             telemetry.addData("info", "Shooting angle: " + canonAngle.getVoltage());
             telemetry.addData("info", "Distance: " + rangeSensor.getDistance(DistanceUnit.CM));
             telemetry.addData("Status", "Run Time: " + runtime.toString());
-            telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
+            // telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
             telemetry.update();
         }
     }
