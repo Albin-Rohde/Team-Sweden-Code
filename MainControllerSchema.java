@@ -1,25 +1,24 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
-import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
 
 @TeleOp(name="Main", group="Linear Opmode")
-
 public class MainControllerSchema extends LinearOpMode {
-
     //utils
     private ElapsedTime runtime = new ElapsedTime();
     private ElapsedTime intervalTime = new ElapsedTime();
-    private ElapsedTime ballSensorDelta = null;
+    private ElapsedTime TimeNow = new ElapsedTime();
 
     // Motors
     private DcMotor leftDrive = null;
@@ -39,18 +38,18 @@ public class MainControllerSchema extends LinearOpMode {
     /* Controller schema */
 
     // gamepad 1
-    private final double turning = gamepad1.right_stick_x;
-    private final double accelerator = gamepad1.left_stick_y;
-    private final boolean slowMode = (gamepad1.left_trigger == 1.00);
-    private final boolean speedMode = (gamepad1.right_trigger == 1.00);
+    private double turning;
+    private double accelerator;
+    private boolean slowMode;
+    private boolean speedMode;
 
     // gamepad 2
-    private final boolean shootTrigger = (gamepad2.right_trigger == 1.00);
-    private final boolean toggleElevator = gamepad2.b;
-    private final boolean aimUp = gamepad2.dpad_up;
-    private final boolean aimDown = gamepad2.dpad_down;
-    private final boolean shooting2mPreset = gamepad2.y;
-    private final boolean shooting7mPreset = gamepad2.a;
+    private boolean shootTrigger;
+    private boolean toggleElevator;
+    private boolean aimUp;
+    private boolean aimDown;
+    private boolean shooting2mPreset;
+    private boolean shooting7mPreset;
 
 
     /* variables for runtime */
@@ -61,9 +60,9 @@ public class MainControllerSchema extends LinearOpMode {
     private final double fastMultiplier = 1.0;
 
     // Default speed
-    private final double defaultCanonPower = 0.37;
-    private final double defaultCollectorPower = 1.00;
-    private final double defaultElevatorPower = 0.00;
+    private final double defaultCanonPower = 0.40; //0.37
+    private final double defaultCollectorPower = 0.00; //1
+    private final double defaultElevatorPower = 0.00; //1
 
     // rpm counter
     private boolean newRound = true;
@@ -77,6 +76,7 @@ public class MainControllerSchema extends LinearOpMode {
     private final double canonPower2meter = 0.37;
     private final double canonPower7meter = 0.8;
     private boolean shoot = false;
+    private boolean ballInCanon = false;
 
 
     // Angle config
@@ -85,6 +85,10 @@ public class MainControllerSchema extends LinearOpMode {
     private final double preset2meterAngle = 1.150;
     private final double preset7meterAngle = 0.750;
 
+
+
+    private double distMargin = 5.0;
+    private boolean currentlyAutoDriving = false;
 
     /* Methods */
 
@@ -103,8 +107,10 @@ public class MainControllerSchema extends LinearOpMode {
         magnetSensor = hardwareMap.digitalChannel.get("magnet");
         rangeSensor = hardwareMap.get(DistanceSensor.class, "rangeSensor");
         canonSensor = hardwareMap.colorSensor.get("color");
-    }
 
+
+
+    }
 
     private void config() {
         magnetSensor.setMode(DigitalChannel.Mode.INPUT);
@@ -115,6 +121,7 @@ public class MainControllerSchema extends LinearOpMode {
 
         leftDrive.setDirection(DcMotor.Direction.FORWARD);
         rightDrive.setDirection(DcMotor.Direction.REVERSE);
+        TimeNow.startTime();
     }
 
 
@@ -140,6 +147,28 @@ public class MainControllerSchema extends LinearOpMode {
     }
 
 
+
+    private void driveToPos() {
+        if (!currentlyAutoDriving) {
+            currentlyAutoDriving = true;
+        }
+        double dist = ((DistanceSensor) rangeSensor).getDistance(DistanceUnit.CM);
+        if (dist > 105 || dist < 100) {
+            double power = slowMultiplier;
+            if (dist > 102.5) power *= -1;
+            double turn = 0;
+
+            double leftPower    = Range.clip(power, -1.0, 1.0) ;
+            double rightPower   = Range.clip(power, -1.0, 1.0) ;
+
+            leftDrive.setPower(leftPower);
+            rightDrive.setPower(rightPower);
+        } else {
+            currentlyAutoDriving = false;
+        }
+    }
+
+
     private void manualShooting() {
         if (shootTrigger) {
             trigger.setPosition(servoPush);
@@ -150,31 +179,21 @@ public class MainControllerSchema extends LinearOpMode {
 
 
     private void autonomousShooting() {
-        if (shootTrigger) {
-            shoot = true;
+        ElapsedTime tempTime;
+        boolean ballInCanon = ((DistanceSensor) canonSensor).getDistance(DistanceUnit.CM) < 7;
+
+        if (ballInCanon && (TimeNow.time() > 1)){
+            TimeNow.reset();
         }
 
-        if (((DistanceSensor) canonSensor).getDistance(DistanceUnit.CM) < 7) {
-            shoot = true;
-        }
-
-        if (trigger.getPosition() == 0) {
-            if (ballSensorDelta == null) {
-                ballSensorDelta = new ElapsedTime();
-                ballSensorDelta.startTime();
-            }
-            if (ballSensorDelta.time() < 100){
-                shoot = false;
-            }
-        }
-        telemetry.addData("debug", "shoot: " + shoot);
-        telemetry.addData("debug", "servo pos: " + trigger.getPosition());
-
-        if (shoot) {
+        if ((TimeNow.time() > 0.2) && (TimeNow.time() < 0.6)) {
             trigger.setPosition(0);
         } else {
             trigger.setPosition(0.55);
         }
+
+        telemetry.addData("time now? ", TimeNow.time());
+        telemetry.addData("ball in canon? ", ballInCanon);
     }
 
 
@@ -190,10 +209,12 @@ public class MainControllerSchema extends LinearOpMode {
     private void aimCanon() {
         double angleOfCanon = canonAngle.getVoltage();
 
-        if (aimUp && angleOfCanon < maxAngle) {
+        if (aimUp) {
             canonLift.setPower(1);
-        } else if (aimDown && angleOfCanon > minAngle) {
+        } else if (aimDown) {
             canonLift.setPower(-1);
+        }else {
+            canonLift.setPower(0);
         }
 
         if (shooting2mPreset && angleOfCanon < preset2meterAngle) {
@@ -250,16 +271,51 @@ public class MainControllerSchema extends LinearOpMode {
         runtime.reset();
         intervalTime.startTime();
         while (opModeIsActive()) {
-            drive();
+            turning = gamepad1.right_stick_x;
+            accelerator = gamepad1.left_stick_y;
+            slowMode = (gamepad1.left_trigger == 1.00);
+            speedMode = (gamepad1.right_trigger == 1.00);
+
+            // gamepad 2
+            shootTrigger = (gamepad2.right_trigger == 1.00);
+            toggleElevator = gamepad2.b;
+            aimUp = gamepad2.dpad_up;
+            aimDown = gamepad2.dpad_down;
+            shooting2mPreset = gamepad2.y;
+            shooting7mPreset = gamepad2.a;
+
+            if (gamepad1.a || currentlyAutoDriving) {
+                driveToPos();
+            } else {
+                drive();
+            }
             toggleElevator();
             aimCanon();
             autonomousShooting();
             double rpm = calculateCanonSpeed();
 
+
+            turning = 0.00;
+            accelerator = 0.00;
+            slowMode = false;
+            speedMode = false;
+
+            // gamepad 2
+            shootTrigger = false;
+            toggleElevator = false;
+            aimUp = false;
+            aimDown = false;
+            shooting2mPreset = false;
+            shooting7mPreset = false;
+
             telemetry.addData("info", "RPM: " + rpm);
             telemetry.addData("info", "Shooting angle: " + canonAngle.getVoltage());
             telemetry.addData("info", "Distance: " + rangeSensor.getDistance(DistanceUnit.CM));
             telemetry.addData("Status", "Run Time: " + runtime.toString());
+            telemetry.addData("info", "Currently AutoDriving: " + currentlyAutoDriving );
+
+            telemetry.addData("debug", "rt" + gamepad1.right_stick_y);
+            telemetry.addData("debug", "lt" + gamepad1.left_stick_x);
             // telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
             telemetry.update();
         }
