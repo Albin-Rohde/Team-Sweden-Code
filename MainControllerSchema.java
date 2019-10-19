@@ -27,6 +27,8 @@ public class MainControllerSchema extends LinearOpMode {
     private DcMotor collector = null;
     private DcMotor elevator = null;
     private DcMotor canonLift = null;
+    private DcMotor plowMotor = null;
+    private DcMotor hookMotor = null;
     private DcMotor canon = null;
     private Servo trigger = null;
 
@@ -43,6 +45,9 @@ public class MainControllerSchema extends LinearOpMode {
     private double accelerator;
     private boolean slowMode;
     private boolean speedMode;
+    private boolean HookUp;
+    private boolean HookDown;
+    private boolean hangHold;
 
     // gamepad 2
     private boolean shootTrigger;
@@ -51,6 +56,7 @@ public class MainControllerSchema extends LinearOpMode {
     private boolean aimDown;
     private boolean shooting2mPreset;
     private boolean shooting7mPreset;
+    private double plowPower;
 
 
     /* variables for runtime */
@@ -76,8 +82,6 @@ public class MainControllerSchema extends LinearOpMode {
     private final double servoPush = 0.00;
     private final double canonPower2meter = 0.37;
     private final double canonPower7meter = 0.8;
-    private boolean shoot = false;
-    private boolean ballInCanon = false;
 
 
     // Angle config
@@ -86,9 +90,9 @@ public class MainControllerSchema extends LinearOpMode {
     private final double preset2meterAngle = 1.150;
     private final double preset7meterAngle = 0.750;
 
+    // Lifting
+    private boolean isHookPositive = true;
 
-
-    private double distMargin = 5.0;
     private boolean currentlyAutoDriving = false;
 
     /* Methods */
@@ -100,6 +104,7 @@ public class MainControllerSchema extends LinearOpMode {
         collector = hardwareMap.get(DcMotor.class, "collector");
         elevator = hardwareMap.get(DcMotor.class, "elevator");
         canonLift = hardwareMap.get(DcMotor.class, "canonLift");
+        plowMotor = hardwareMap.get(DcMotor.class, "plow");
         canon = hardwareMap.get(DcMotor.class, "canon");
         trigger = hardwareMap.get(Servo.class, "trigger");
 
@@ -231,8 +236,23 @@ public class MainControllerSchema extends LinearOpMode {
         }
     }
 
-    private void
+    private void plow() {
+        plowMotor.setPower(plowPower);
+    }
 
+    private void liftRobot() {
+        if (HookUp) {
+            hookMotor.setPower(1);
+            isHookPositive = true;
+        } else if (HookDown) {
+            hookMotor.setPower(-1);
+            isHookPositive = false;
+        } else if (hangHold) {
+            hookMotor.setPower(isHookPositive ? 0.3 : -0.3);
+        } else {
+            hookMotor.setPower(0);
+        }
+    }
 
 
     private double calculateCanonSpeed () {
@@ -270,7 +290,6 @@ public class MainControllerSchema extends LinearOpMode {
         runtime.reset();
         intervalTime.startTime();
         while (opModeIsActive()) {
-
             turning = 0.00;
             accelerator = 0.00;
             slowMode = false;
@@ -282,20 +301,26 @@ public class MainControllerSchema extends LinearOpMode {
             aimDown = false;
             shooting2mPreset = false;
             shooting7mPreset = false;
+            plowPower = 0.00;
+            HookUp = false;
+            HookDown = false;
+            hangHold = false;
 
-            // gamepad 1
             turning = gamepad1.right_stick_x;
             accelerator = gamepad1.left_stick_y;
             slowMode = (gamepad1.left_trigger == 1.00);
             speedMode = (gamepad1.right_trigger == 1.00);
+            hangHold = gamepad1.a;
 
-            // gamepad 2
             shootTrigger = (gamepad2.right_trigger == 1.00);
             toggleElevator = gamepad2.b;
             aimUp = gamepad2.dpad_up;
             aimDown = gamepad2.dpad_down;
             shooting2mPreset = gamepad2.y;
             shooting7mPreset = gamepad2.a;
+            plowPower = gamepad2.right_stick_y;
+            HookUp = gamepad2.dpad_up;
+            HookDown = gamepad2.dpad_down;
 
             if (gamepad1.a || currentlyAutoDriving && Math.abs(turning) <0.2 && Math.abs(accelerator) <0.2) {
                 driveToPos();
@@ -305,6 +330,8 @@ public class MainControllerSchema extends LinearOpMode {
             toggleElevator();
             aimCanon();
             autonomousShooting();
+            plow();
+            liftRobot();
             double rpm = calculateCanonSpeed();
 
 
