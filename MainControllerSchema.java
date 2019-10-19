@@ -205,15 +205,21 @@ public class MainControllerSchema extends LinearOpMode {
             canonLift.setPower(0);
         }
 
-
-        if (shooting2mPreset) {
+        if ((shooting2mPreset && shooting7mPreset) || (runtime.time() < 4 && runtime.time() > 1)) {
+            if (angleOfCanon < (preset2meterAngle + preset7meterAngle) / 2 * 0.9) {
+                canonLift.setPower(1);
+            }
+            else if (angleOfCanon > (preset2meterAngle + preset7meterAngle) / 2 * 1.1) {
+                canonLift.setPower(-1);
+            }
+        }else if (shooting2mPreset) {
             canon.setPower(canonPower2meter);
             if (angleOfCanon < preset2meterAngle) {
                 canonLift.setPower(1);
             }
         } else if (shooting7mPreset) {
             canon.setPower(canonPower7meter);
-            if (shooting2mPreset && angleOfCanon > preset7meterAngle) {
+            if (angleOfCanon > preset7meterAngle) {
                 canonLift.setPower(-1);
             }
         }
