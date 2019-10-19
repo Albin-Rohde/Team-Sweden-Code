@@ -149,23 +149,17 @@ public class MainControllerSchema extends LinearOpMode {
 
 
     private void driveToPos() {
-        if (!currentlyAutoDriving) {
-            currentlyAutoDriving = true;
-        }
-        double dist = ((DistanceSensor) rangeSensor).getDistance(DistanceUnit.CM);
-        if (dist > 105 || dist < 100) {
-            double power = slowMultiplier;
-            if (dist > 102.5) power *= -1;
-            double turn = 0;
-
-            double leftPower    = Range.clip(power, -1.0, 1.0) ;
-            double rightPower   = Range.clip(power, -1.0, 1.0) ;
-
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
+        currentlyAutoDriving = true;
+        if (rangeSensor.getDistance(DistanceUnit.CM) > 105) {
+            leftDrive.setPower(slowMultiplier);
+            rightDrive.setPower(slowMultiplier);
+        } else if (rangeSensor.getDistance(DistanceUnit.CM) < 100) {
+            leftDrive.setPower(-slowMultiplier);
+            rightDrive.setPower(-slowMultiplier);
         } else {
             currentlyAutoDriving = false;
         }
+
     }
 
 
@@ -179,7 +173,6 @@ public class MainControllerSchema extends LinearOpMode {
 
 
     private void autonomousShooting() {
-        ElapsedTime tempTime;
         boolean ballInCanon = ((DistanceSensor) canonSensor).getDistance(DistanceUnit.CM) < 7;
 
         if (ballInCanon && (TimeNow.time() > 1)){
@@ -187,9 +180,9 @@ public class MainControllerSchema extends LinearOpMode {
         }
 
         if ((TimeNow.time() > 0.2) && (TimeNow.time() < 0.6)) {
-            trigger.setPosition(0);
+            trigger.setPosition(servoPush);
         } else {
-            trigger.setPosition(0.55);
+            trigger.setPosition(servoBack);
         }
 
         telemetry.addData("time now? ", TimeNow.time());
@@ -198,13 +191,8 @@ public class MainControllerSchema extends LinearOpMode {
 
 
     private void toggleElevator() {
-        if (toggleElevator) {
-            elevator.setPower(1);
-        } else {
-            elevator.setPower(0);
-        }
+        elevator.setPower(toggleElevator ? 0.00 : 1.00);
     }
-
 
     private void aimCanon() {
         double angleOfCanon = canonAngle.getVoltage();
@@ -217,17 +205,17 @@ public class MainControllerSchema extends LinearOpMode {
             canonLift.setPower(0);
         }
 
-        if (shooting2mPreset && angleOfCanon < preset2meterAngle) {
-            canonLift.setPower(1);
-        } else if (shooting2mPreset && angleOfCanon > preset7meterAngle) {
-            canonLift.setPower(-1);
-        }
-
 
         if (shooting2mPreset) {
             canon.setPower(canonPower2meter);
+            if (angleOfCanon < preset2meterAngle) {
+                canonLift.setPower(1);
+            }
         } else if (shooting7mPreset) {
             canon.setPower(canonPower7meter);
+            if (shooting2mPreset && angleOfCanon > preset7meterAngle) {
+                canonLift.setPower(-1);
+            }
         }
     }
 
@@ -235,17 +223,14 @@ public class MainControllerSchema extends LinearOpMode {
 
     private double calculateCanonSpeed () {
         if (magnetSensor.getState() && newRound) {
-            if (historyIndex == 10) {
-                historyIndex = 0;
-                totalTime = 0;
-                for (int i = 0; i < 10; i++) {
-                    totalTime += intervalHistory[i];
-                }
+            totalTime = 0;
+            for (int i = 0; i < 10; i++) {
+                totalTime += intervalHistory[i];
             }
 
             double time = intervalTime.time();
             intervalHistory[historyIndex] = time;
-            historyIndex++;
+            historyIndex = (historyIndex +1) % 10;
             intervalTime.reset();
             newRound = false;
         }
@@ -253,7 +238,7 @@ public class MainControllerSchema extends LinearOpMode {
             newRound = true;
         }
 
-        double rpmOfBigWheel = (5 / totalTime) * 60;
+        double rpmOfBigWheel = ((125/30) / totalTime) * 60;
         return rpmOfBigWheel;
     }
 
@@ -271,29 +256,6 @@ public class MainControllerSchema extends LinearOpMode {
         runtime.reset();
         intervalTime.startTime();
         while (opModeIsActive()) {
-            turning = gamepad1.right_stick_x;
-            accelerator = gamepad1.left_stick_y;
-            slowMode = (gamepad1.left_trigger == 1.00);
-            speedMode = (gamepad1.right_trigger == 1.00);
-
-            // gamepad 2
-            shootTrigger = (gamepad2.right_trigger == 1.00);
-            toggleElevator = gamepad2.b;
-            aimUp = gamepad2.dpad_up;
-            aimDown = gamepad2.dpad_down;
-            shooting2mPreset = gamepad2.y;
-            shooting7mPreset = gamepad2.a;
-
-            if (gamepad1.a || currentlyAutoDriving) {
-                driveToPos();
-            } else {
-                drive();
-            }
-            toggleElevator();
-            aimCanon();
-            autonomousShooting();
-            double rpm = calculateCanonSpeed();
-
 
             turning = 0.00;
             accelerator = 0.00;
@@ -307,6 +269,30 @@ public class MainControllerSchema extends LinearOpMode {
             aimDown = false;
             shooting2mPreset = false;
             shooting7mPreset = false;
+
+            turning = gamepad1.right_stick_x;
+            accelerator = gamepad1.left_stick_y;
+            slowMode = (gamepad1.left_trigger == 1.00);
+            speedMode = (gamepad1.right_trigger == 1.00);
+
+            // gamepad 2
+            shootTrigger = (gamepad2.right_trigger == 1.00);
+            toggleElevator = gamepad2.b;
+            aimUp = gamepad2.dpad_up;
+            aimDown = gamepad2.dpad_down;
+            shooting2mPreset = gamepad2.y;
+            shooting7mPreset = gamepad2.a;
+
+            if (gamepad1.a || currentlyAutoDriving && Math.abs(turning) <0.2 && Math.abs(accelerator) <0.2) {
+                driveToPos();
+            } else {
+                drive();
+            }
+            toggleElevator();
+            aimCanon();
+            autonomousShooting();
+            double rpm = calculateCanonSpeed();
+
 
             telemetry.addData("info", "RPM: " + rpm);
             telemetry.addData("info", "Shooting angle: " + canonAngle.getVoltage());
