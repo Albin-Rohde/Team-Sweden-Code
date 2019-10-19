@@ -19,6 +19,7 @@ public class MainControllerSchema extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
     private ElapsedTime intervalTime = new ElapsedTime();
     private ElapsedTime TimeNow = new ElapsedTime();
+    private ElapsedTime ContinusShootTimer = new ElapsedTime();
 
     // Motors
     private DcMotor leftDrive = null;
@@ -164,10 +165,15 @@ public class MainControllerSchema extends LinearOpMode {
 
 
     private void manualShooting() {
-        if (shootTrigger) {
-            trigger.setPosition(servoPush);
-        } else {
-            trigger.setPosition(servoBack);
+        if (!shootTrigger) {
+            ContinusShootTimer.reset();
+        }
+        if (ContinusShootTimer.time() < 2) {
+            if (shootTrigger) {
+                trigger.setPosition(servoPush);
+            } else {
+                trigger.setPosition(servoBack);
+            }
         }
     }
 
@@ -175,7 +181,7 @@ public class MainControllerSchema extends LinearOpMode {
     private void autonomousShooting() {
         boolean ballInCanon = ((DistanceSensor) canonSensor).getDistance(DistanceUnit.CM) < 7;
 
-        if (ballInCanon && (TimeNow.time() > 1)){
+        if (ballInCanon && (TimeNow.time() > 1) && ContinusShootTimer.time() > 2){
             TimeNow.reset();
         }
 
@@ -225,6 +231,8 @@ public class MainControllerSchema extends LinearOpMode {
         }
     }
 
+    private void
+
 
 
     private double calculateCanonSpeed () {
@@ -268,7 +276,6 @@ public class MainControllerSchema extends LinearOpMode {
             slowMode = false;
             speedMode = false;
 
-            // gamepad 2
             shootTrigger = false;
             toggleElevator = false;
             aimUp = false;
@@ -276,6 +283,7 @@ public class MainControllerSchema extends LinearOpMode {
             shooting2mPreset = false;
             shooting7mPreset = false;
 
+            // gamepad 1
             turning = gamepad1.right_stick_x;
             accelerator = gamepad1.left_stick_y;
             slowMode = (gamepad1.left_trigger == 1.00);
