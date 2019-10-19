@@ -313,7 +313,7 @@ public class MainControllerSchema extends LinearOpMode {
             hangHold = gamepad1.a;
 
             shootTrigger = (gamepad2.right_trigger == 1.00);
-            toggleElevator = gamepad2.b;
+            toggleElevator = (gamepad2.left_trigger == 1.00);
             aimUp = gamepad2.dpad_up;
             aimDown = gamepad2.dpad_down;
             shooting2mPreset = gamepad2.y;
