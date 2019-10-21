@@ -14,7 +14,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 
 @TeleOp(name="Main", group="Linear Opmode")
-public class MainControllerSchema extends LinearOpMode {
+public class Main extends LinearOpMode {
     //utils
     private ElapsedTime runtime = new ElapsedTime();
     private ElapsedTime intervalTime = new ElapsedTime();
@@ -54,8 +54,7 @@ public class MainControllerSchema extends LinearOpMode {
     private boolean toggleElevator;
     private boolean aimUp;
     private boolean aimDown;
-    private boolean shooting2mPreset;
-    private boolean shooting7mPreset;
+    private boolean anglePreset;
     private double plowPower;
 
 
@@ -67,8 +66,8 @@ public class MainControllerSchema extends LinearOpMode {
     private final double fastMultiplier = 1.0;
 
     // Default speed
-    private final double defaultCanonPower = 0.40; //0.37
-    private final double defaultCollectorPower = 0.00; //1
+    private final double defaultCanonPower = 0.45; //0.37 close, // 0.45 3500mm
+    private final double defaultCollectorPower = 1.00; //1
     private final double defaultElevatorPower = 0.00; //1
 
     // rpm counter
@@ -80,15 +79,12 @@ public class MainControllerSchema extends LinearOpMode {
     // shooting
     private final double servoBack = 0.55;
     private final double servoPush = 0.00;
-    private final double canonPower2meter = 0.37;
-    private final double canonPower7meter = 0.8;
-
 
     // Angle config
-    private final double maxAngle = 1.178;
-    private final double minAngle = 0.399;
-    private final double preset2meterAngle = 1.150;
-    private final double preset7meterAngle = 0.750;
+    private final double maxAngle = 3.1;
+    private final double minAngle = 0.2;
+    private final double anglePresetPotValue = 1.1;
+    private boolean isToHigh = false;
 
     // Lifting
     private boolean isHookPositive = true;
@@ -105,6 +101,7 @@ public class MainControllerSchema extends LinearOpMode {
         elevator = hardwareMap.get(DcMotor.class, "elevator");
         canonLift = hardwareMap.get(DcMotor.class, "canonLift");
         plowMotor = hardwareMap.get(DcMotor.class, "plow");
+        hookMotor = hardwareMap.get(DcMotor.class, "hook");
         canon = hardwareMap.get(DcMotor.class, "canon");
         trigger = hardwareMap.get(Servo.class, "trigger");
 
@@ -163,9 +160,10 @@ public class MainControllerSchema extends LinearOpMode {
             leftDrive.setPower(-slowMultiplier);
             rightDrive.setPower(-slowMultiplier);
         } else {
+            leftDrive.setPower(0);
+            rightDrive.setPower(0);
             currentlyAutoDriving = false;
         }
-
     }
 
 
@@ -201,8 +199,12 @@ public class MainControllerSchema extends LinearOpMode {
     }
 
 
-    private void toggleElevator() {
-        elevator.setPower(toggleElevator ? 0.00 : 1.00);
+    private void controlElevator() {
+        if (toggleElevator) {
+            elevator.setPower(1.00);
+        } else {
+            elevator.setPower(0.00);
+        }
     }
 
     private void aimCanon() {
@@ -216,22 +218,14 @@ public class MainControllerSchema extends LinearOpMode {
             canonLift.setPower(0);
         }
 
-        if ((shooting2mPreset && shooting7mPreset) || (runtime.time() < 4 && runtime.time() > 1)) {
-            if (angleOfCanon < (preset2meterAngle + preset7meterAngle) / 2 * 0.9) {
+        if (anglePreset) {
+            if (angleOfCanon > 1.2600) {
+                isToHigh = true;
+            }
+            if (angleOfCanon < 1.2500) {
                 canonLift.setPower(1);
-            }
-            else if (angleOfCanon > (preset2meterAngle + preset7meterAngle) / 2 * 1.1) {
-                canonLift.setPower(-1);
-            }
-        }else if (shooting2mPreset) {
-            canon.setPower(canonPower2meter);
-            if (angleOfCanon < preset2meterAngle) {
-                canonLift.setPower(1);
-            }
-        } else if (shooting7mPreset) {
-            canon.setPower(canonPower7meter);
-            if (angleOfCanon > preset7meterAngle) {
-                canonLift.setPower(-1);
+            } else {
+                canonLift.setPower(0);
             }
         }
     }
@@ -248,7 +242,7 @@ public class MainControllerSchema extends LinearOpMode {
             hookMotor.setPower(-1);
             isHookPositive = false;
         } else if (hangHold) {
-            hookMotor.setPower(isHookPositive ? 0.3 : -0.3);
+            hookMotor.setPower(isHookPositive ? 0.2 : -0.2);
         } else {
             hookMotor.setPower(0);
         }
@@ -299,37 +293,39 @@ public class MainControllerSchema extends LinearOpMode {
             toggleElevator = false;
             aimUp = false;
             aimDown = false;
-            shooting2mPreset = false;
-            shooting7mPreset = false;
+            anglePreset = false;
             plowPower = 0.00;
             HookUp = false;
             HookDown = false;
             hangHold = false;
+
 
             turning = gamepad1.right_stick_x;
             accelerator = gamepad1.left_stick_y;
             slowMode = (gamepad1.left_trigger == 1.00);
             speedMode = (gamepad1.right_trigger == 1.00);
             hangHold = gamepad1.a;
+            HookUp = gamepad1.dpad_up;
+            HookDown = gamepad1.dpad_down;
 
             shootTrigger = (gamepad2.right_trigger == 1.00);
             toggleElevator = (gamepad2.left_trigger == 1.00);
             aimUp = gamepad2.dpad_up;
             aimDown = gamepad2.dpad_down;
-            shooting2mPreset = gamepad2.y;
-            shooting7mPreset = gamepad2.a;
+            anglePreset = gamepad2.x;
             plowPower = gamepad2.right_stick_y;
-            HookUp = gamepad2.dpad_up;
-            HookDown = gamepad2.dpad_down;
 
+            /*
             if (gamepad1.a || currentlyAutoDriving && Math.abs(turning) <0.2 && Math.abs(accelerator) <0.2) {
                 driveToPos();
             } else {
                 drive();
-            }
-            toggleElevator();
+            } */
+            drive();
+            controlElevator();
             aimCanon();
             autonomousShooting();
+            manualShooting();
             plow();
             liftRobot();
             double rpm = calculateCanonSpeed();
@@ -343,6 +339,7 @@ public class MainControllerSchema extends LinearOpMode {
 
             telemetry.addData("debug", "rt" + gamepad1.right_stick_y);
             telemetry.addData("debug", "lt" + gamepad1.left_stick_x);
+            telemetry.addData("debug", "elevator button: " + toggleElevator);
             // telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
             telemetry.update();
         }
